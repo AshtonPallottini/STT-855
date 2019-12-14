@@ -1,0 +1,293 @@
+---
+title: "M2_HW1"
+author: "Ashton Pallottini"
+date: "10/30/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+###Number 1
+
+```{r}
+SNPdata <- read.table("SNPdata.txt", header = T)
+```
+
+
+####Part 1
+
+```{r}
+#For SNP1
+tab.snp1 <- table(SNPdata$y, SNPdata$S1)
+colnames(tab.snp1) <- c("AA", "Aa", "aa")
+rownames(tab.snp1) <- c("Controls", "Cases")
+tab.snp1
+chisq.test(tab.snp1)
+
+#For SNP2
+tab.snp2 <- table(SNPdata$y, SNPdata$S2)
+colnames(tab.snp2) <- c("AA", "Aa", "aa")
+rownames(tab.snp2) <- c("Controls", "Cases")
+tab.snp2
+chisq.test(tab.snp2)
+```
+
+Both SNP1 and SNP2 seem to be significantly related to whether or not someone has a positive disease status. The test for SNP1 yields a chi-squared statistic of 11.035, which with df = 2 yields a p value of 0.004015. The test for SNP2 yields a chi-squared statistic of 6.5269, which with df = 2 yields a p value of 0.03826. Thus, SNP1 is significantly related with the disease at the 1% level, while SNP2 is significantly related with the disease at the 5% level.
+
+####Part 2
+
+```{r}
+#For SNP1
+maf.snp1.ctrl <- (2*19 + 87)/(2*(180 + 87 + 19))
+maf.snp1.ctrl
+maf.snp1.cases <- (2*11 + 84)/(2*(90 + 84 + 11))
+maf.snp1.cases
+z.score.snp1 <- (maf.snp1.cases - maf.snp1.ctrl)/sqrt(maf.snp1.cases*(1 - maf.snp1.cases)/(2*(90+84+11)) + maf.snp1.ctrl*(1 - maf.snp1.ctrl)/(2*(180+87+19)))
+z.score.snp1
+2*pnorm(abs(z.score.snp1), lower.tail = F)
+
+#For SNP2
+maf.snp2.ctrl <- (2*26 + 110)/(2*(150 + 110 + 26))
+maf.snp2.ctrl
+maf.snp2.cases <- (2*19 + 91)/(2*(75 + 91 + 19))
+maf.snp2.cases
+z.score.snp2 <- (maf.snp2.cases - maf.snp2.ctrl)/sqrt(maf.snp2.cases*(1 - maf.snp2.cases)/(2*(75+91+19)) + maf.snp2.ctrl*(1 - maf.snp2.ctrl)/(2*(150+110+26)))
+z.score.snp2
+2*pnorm(abs(z.score.snp2), lower.tail = F)
+```
+
+For both SNPs, the minor allele is a. For SNP1, the minor allele frequency of controls is 0.2185 and the minor allele frequency of cases is 0.2865. The z score for this is about 2.33, which yields a p value of 0.0198. For SNP2, the minor allele frequency of controls is 0.2832 and the minor allele frequency of cases is 0.3486. The z score for this is 2.102, which yields a pvalue of 0.0355. Both are significant at the 5% level, so we can say that both SNPs are likely related to the disease. This is the same result we got from part 1, although our evidence for SNP1 is slightly weaker.
+
+####Part 3
+
+```{r}
+additive <- SNPdata 
+
+SNPdata[SNPdata == 1 | SNPdata == 2] <- SNPdata[SNPdata == 1 | SNPdata == 2] - 1
+recessive <- SNPdata
+recessive$y <- additive$y
+
+SNPdata <- additive
+SNPdata[SNPdata == 2] <- SNPdata[SNPdata == 2] - 1
+dominant <- SNPdata
+SNPdata <- additive
+
+add.glm <- glm(y~S1+S2, data = additive, family = "binomial")
+summary(add.glm)
+rec.glm <- glm(y~S1+S2, data = recessive, family = "binomial")
+summary(rec.glm)
+dom.glm <- glm(y~S1+S2, data = dominant, family = "binomial")
+summary(dom.glm)
+```
+
+Both the additive and recessive models conclude that neither of the two alleles are significant in determining y. The dominant model concludes that SNP2 is not significant in determining y, but SNP1 is slightly significant with a p value of about 0.0913.
+
+####Part 4
+
+```{r}
+AIC(add.glm, rec.glm, dom.glm)
+```
+
+Since the dominant model minimizes AIC, the optimal model to use is the dominant model.
+
+###Number 2
+
+```{r}
+TDT <- read.csv("TDT_data.csv", header = T)
+TDT$SNP1.OneYesTwoNo <- rep(0, 200)
+TDT$SNP1.OneYesOneNo <- rep(0, 200)
+TDT$SNP1.TwoYesOneNo <- rep(0, 200)
+TDT$SNP1.TwoYesTwoNo <- rep(0, 200)
+TDT$SNP2.OneYesTwoNo <- rep(0, 200)
+TDT$SNP2.OneYesOneNo <- rep(0, 200)
+TDT$SNP2.TwoYesOneNo <- rep(0, 200)
+TDT$SNP2.TwoYesTwoNo <- rep(0, 200)
+TDT$SNP3.OneYesTwoNo <- rep(0, 200)
+TDT$SNP3.OneYesOneNo <- rep(0, 200)
+TDT$SNP3.TwoYesOneNo <- rep(0, 200)
+TDT$SNP3.TwoYesTwoNo <- rep(0, 200)
+
+for(i in 1:200){
+  if(TDT$mother[i] == 11 & TDT$father[i] == 11){
+    TDT$SNP1.OneYesOneNo[i] <- 2
+    TDT$SNP2.OneYesOneNo[i] <- 2
+    TDT$SNP3.OneYesOneNo[i] <- 2
+  } else if(TDT$mother[i] == 22 & TDT$father[i] == 22){
+    TDT$SNP1.TwoYesTwoNo[i] <- 2
+    TDT$SNP2.TwoYesTwoNo[i] <- 2
+    TDT$SNP3.TwoYesTwoNo[i] <- 2
+  } else if(TDT$mother[i] == 12 & TDT$father[i] == 22){
+      if(TDT$SNP1[i] == 22){
+        TDT$SNP1.TwoYesOneNo[i] <- 1
+        TDT$SNP1.TwoYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP1.OneYesTwoNo[i] <- 1
+        TDT$SNP1.TwoYesTwoNo[i] <- 1
+      }
+      if(TDT$SNP2[i] == 22){
+        TDT$SNP2.TwoYesOneNo[i] <- 1
+        TDT$SNP2.TwoYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP2.OneYesTwoNo[i] <- 1
+        TDT$SNP2.TwoYesTwoNo[i] <- 1
+      }
+      if(TDT$SNP3[i] == 22){
+        TDT$SNP3.TwoYesOneNo[i] <- 1
+        TDT$SNP3.TwoYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP3.OneYesTwoNo[i] <- 1
+        TDT$SNP3.TwoYesTwoNo[i] <- 1
+    }
+  } else if(TDT$mother[i] == 22 & TDT$father[i] == 12){
+      if(TDT$SNP1[i] == 22){
+        TDT$SNP1.TwoYesOneNo[i] <- 1
+        TDT$SNP1.TwoYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP1.OneYesTwoNo[i] <- 1
+        TDT$SNP1.TwoYesTwoNo[i] <- 1
+      }
+      if(TDT$SNP2[i] == 22){
+        TDT$SNP2.TwoYesOneNo[i] <- 1
+        TDT$SNP2.TwoYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP2.OneYesTwoNo[i] <- 1
+        TDT$SNP2.TwoYesTwoNo[i] <- 1
+      }
+      if(TDT$SNP3[i] == 22){
+        TDT$SNP3.TwoYesOneNo[i] <- 1
+        TDT$SNP3.TwoYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP3.OneYesTwoNo[i] <- 1
+        TDT$SNP3.TwoYesTwoNo[i] <- 1
+      }
+  } else if(TDT$mother[i] == 22 & TDT$father[i] == 11){
+    TDT$SNP1.TwoYesTwoNo[i] <- 1
+    TDT$SNP2.TwoYesTwoNo[i] <- 1
+    TDT$SNP3.TwoYesTwoNo[i] <- 1
+    TDT$SNP1.OneYesOneNo[i] <- 1
+    TDT$SNP2.OneYesOneNo[i] <- 1
+    TDT$SNP3.OneYesOneNo[i] <- 1
+  } else if(TDT$mother[i] == 11 & TDT$father[i] == 22){
+    TDT$SNP1.TwoYesTwoNo[i] <- 1
+    TDT$SNP2.TwoYesTwoNo[i] <- 1
+    TDT$SNP3.TwoYesTwoNo[i] <- 1
+    TDT$SNP1.OneYesOneNo[i] <- 1
+    TDT$SNP2.OneYesOneNo[i] <- 1
+    TDT$SNP3.OneYesOneNo[i] <- 1
+  } else if(TDT$mother[i] == 12 & TDT$father[i] == 11){
+      if(TDT$SNP1[i] == 11){
+        TDT$SNP1.OneYesOneNo[i] <- 1
+        TDT$SNP1.OneYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP1.OneYesOneNo[i] <- 1
+        TDT$SNP1.TwoYesOneNo[i] <- 1
+      }
+      if(TDT$SNP2[i] == 22){
+        TDT$SNP2.OneYesOneNo[i] <- 1
+        TDT$SNP2.OneYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP2.OneYesOneNo[i] <- 1
+        TDT$SNP2.TwoYesOneNo[i] <- 1
+      }
+      if(TDT$SNP3[i] == 22){
+        TDT$SNP3.OneYesOneNo[i] <- 1
+        TDT$SNP3.OneYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP3.OneYesOneNo[i] <- 1
+        TDT$SNP3.TwoYesOneNo[i] <- 1
+      }
+  } else if(TDT$mother[i] == 11 & TDT$father[i] == 12){
+      if(TDT$SNP1[i] == 11){
+        TDT$SNP1.OneYesOneNo[i] <- 1
+        TDT$SNP1.OneYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP1.OneYesOneNo[i] <- 1
+        TDT$SNP1.TwoYesOneNo[i] <- 1
+      } 
+      if(TDT$SNP2[i] == 22){
+        TDT$SNP2.OneYesOneNo[i] <- 1
+        TDT$SNP2.OneYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP2.OneYesOneNo[i] <- 1
+        TDT$SNP2.TwoYesOneNo[i] <- 1
+      } 
+      if(TDT$SNP3[i] == 22){
+        TDT$SNP3.OneYesOneNo[i] <- 1
+        TDT$SNP3.OneYesTwoNo[i] <- 1
+      } else{
+        TDT$SNP3.OneYesOneNo[i] <- 1
+        TDT$SNP3.TwoYesOneNo[i] <- 1
+      }
+  } else{
+      if(TDT$SNP1[i] == 11){
+        TDT$SNP1.OneYesTwoNo[i] <- 2
+      } else if(TDT$SNP1[i] == 12){
+        TDT$SNP1.OneYesTwoNo[i] <- 1
+        TDT$SNP1.TwoYesOneNo[i] <- 1
+      } else{
+        TDT$SNP1.TwoYesOneNo[i] <- 2
+      }
+      if(TDT$SNP2[i] == 11){
+        TDT$SNP2.OneYesTwoNo[i] <- 2
+      } else if(TDT$SNP2[i] == 12){
+        TDT$SNP2.OneYesTwoNo[i] <- 1
+        TDT$SNP2.TwoYesOneNo[i] <- 1
+      } else{
+        TDT$SNP2.TwoYesOneNo[i] <- 2
+      }
+      if(TDT$SNP3[i] == 11){
+          TDT$SNP3.OneYesTwoNo[i] <- 2
+      } else if(TDT$SNP3[i] == 12){
+        TDT$SNP3.OneYesTwoNo[i] <- 1
+        TDT$SNP3.TwoYesOneNo[i] <- 1
+      } else{
+        TDT$SNP3.TwoYesOneNo[i] <- 2
+      }
+  }
+}
+```
+
+```{r}
+TDT <- TDT[TDT$y==1,]
+
+SNP1.mat <- matrix(nrow = 2, ncol = 2)
+colnames(SNP1.mat) <- c("Trans", "Untrans")
+rownames(SNP1.mat) <- c("Allele 1", "Allele 2")
+SNP1.mat[1,1] <- sum(colSums(TDT)[c(7,8)])
+SNP1.mat[1,2] <- sum(colSums(TDT)[c(8,9)])
+SNP1.mat[2,1] <- sum(colSums(TDT)[c(9,10)])
+SNP1.mat[2,2] <- sum(colSums(TDT)[c(7,10)])
+SNP1.mat
+SNP1.chisq <- (52 - 72)^2/(52+72)
+SNP1.chisq
+pchisq(SNP1.chisq, df = 1, lower.tail = F)
+
+SNP2.mat <- matrix(nrow = 2, ncol = 2)
+colnames(SNP2.mat) <- c("Trans", "Untrans")
+rownames(SNP2.mat) <- c("Allele 1", "Allele 2")
+SNP2.mat[1,1] <- sum(colSums(TDT)[c(11,12)])
+SNP2.mat[1,2] <- sum(colSums(TDT)[c(12,13)])
+SNP2.mat[2,1] <- sum(colSums(TDT)[c(13,14)])
+SNP2.mat[2,2] <- sum(colSums(TDT)[c(11,14)])
+SNP2.mat
+SNP2.chisq <- (68 - 56)^2/(56+68)
+SNP2.chisq
+pchisq(SNP2.chisq, df = 1, lower.tail = F)
+
+SNP3.mat <- matrix(nrow = 2, ncol = 2)
+colnames(SNP3.mat) <- c("Trans", "Untrans")
+rownames(SNP3.mat) <- c("Allele 1", "Allele 2")
+SNP3.mat[1,1] <- sum(colSums(TDT)[c(15,16)])
+SNP3.mat[1,2] <- sum(colSums(TDT)[c(16,17)])
+SNP3.mat[2,1] <- sum(colSums(TDT)[c(17,18)])
+SNP3.mat[2,2] <- sum(colSums(TDT)[c(15,18)])
+SNP3.mat
+SNP3.chisq <- (72 - 52)^2/(52+72)
+SNP3.chisq
+pchisq(SNP3.chisq, df = 1, lower.tail = F)
+```
+
+For SNP1, the Chi-squared statistics is 3.226, which with one df yields a p value of about 0.07. So we can conclude at the 10% significance level that there is an association between the allele transimission at SNP1 and the disease. For SNP2, the Chi-squared statistics is 1.161, which with one df yields a p value of about 0.28. So we have little evidence of any association between SNP2 and the disease. For SNP3, the Chi-squared statistics is 3.226, which with one df yields a p value of about 0.07. So we can conclude at the 10% significance level that there is an association between the allele transimission at SNP3 and the disease.
+

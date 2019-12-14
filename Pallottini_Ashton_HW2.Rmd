@@ -1,0 +1,142 @@
+---
+title: "HW2"
+author: "Ashton Pallottini"
+date: "9/20/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, warning=FALSE, message = FALSE}
+library(qqman)
+```
+
+
+###Number 1
+
+```{r}
+mv.mat <- matrix(nrow=4, ncol=8)
+mv.df <- as.data.frame(mv.mat)
+colnames(mv.df) <- c("Genotype", "HWE.Freq", "X", "G", "X*Freq", "G*Freq", "G^2*Freq", "X*G*Freq")
+mv.df$Genotype <- c("A1A1", "A1A2", "A2A2", "")
+mv.df$HWE.Freq <- c("p^2", "2pq", "q^2", "")
+mv.df$X <- c(0,1,2,"")
+mv.df$G <- c("-a", "d", "a", "")
+mv.df$`X*Freq` <- c(0, "2pq", "2q^2", "[2pq + 2q^2]")
+mv.df$`G*Freq` <- c("-ap^2", "2pqd", "aq^2", "[-ap^2 + 2pqd + aq^2]")
+mv.df$`G^2*Freq` <- c("(ap)^2", "2pqd^2", "(aq)^2", "[(ap)^2 + 2pqd^2 + (aq)^2]")
+mv.df$`X*G*Freq` <- c("0", "2pqd", "2aq^2", "[2pqd + 2aq^2]")
+
+mv.df
+```
+
+Assuming p is the frequency of the A1 allele, the above table has our results. Simplifying some results yields:
+E(X) = 2q
+E(G) = 2dpq - a(p-q)
+Var(G) = E(G^2) - E(G)^2 = 2pq(a + d(q-p))^2 + (2pqd)^2
+Cov(G,X) = E(GX) - E(G)E(X) = 2pq(d - 2dq + a)
+
+###Number 2
+
+```{r}
+vg <- function(p,a,d){
+  q <- 1-p
+  var.g <- 2*p*q*(a + d*(q-p))^2 + (2*p*q*d)^2
+  return(var.g)
+}
+
+va <- function(p,a,d){
+  q <- 1-p
+  var.a <- 2*p*q*(a + d*(q-p))^2
+  return(var.a)
+}
+
+my.ps <- runif(1000, .01, .99)
+my.vars.g <- rep(0,1000)
+my.vars.a <- rep(0,1000)
+
+#No dominance
+for(i in 1:1000){
+  my.vars.g[i] <- vg(my.ps[i],1,0)
+  my.vars.a[i] <- va(my.ps[i],1,0)
+}
+
+graph.x <- c(my.ps,my.ps)
+graph.y <- c(my.vars.a, my.vars.g)
+plot(x = graph.x, y = graph.y, main = "No Dominance", ylab = "Variance", xlab = "p", text(.5,.3, "Additive Variance = Genetic Variance"))
+
+#Partial dominance
+for(i in 1:1000){
+  my.vars.g[i] <- vg(my.ps[i],1,0.5)
+  my.vars.a[i] <- va(my.ps[i],1,0.5)
+}
+
+graph.x <- c(my.ps,my.ps)
+graph.y <- c(my.vars.a, my.vars.g)
+plot(x = graph.x, y = graph.y, main = "Partial Dominance", ylab = "Variance", xlab = "p", text(.33,.48, "Additive Variance"))
+text(0.62, 0.6, "Genetic Variance")
+
+#Complete dominance
+for(i in 1:1000){
+  my.vars.g[i] <- vg(my.ps[i],1,1)
+  my.vars.a[i] <- va(my.ps[i],1,1)
+}
+
+graph.x <- c(my.ps,my.ps)
+graph.y <- c(my.vars.a, my.vars.g)
+plot(x = graph.x, y = graph.y, main = "Complete Dominance", ylab = "Variance", xlab = "p", text(.33,.6, "Additive Variance"))
+text(0.62, 0.8, "Genetic Variance")
+```
+
+The first graph is a case of no dominance, and it shows that the genetic variance and additive variance are equal to each other, form a symmetric bell curve, and are maximized at p = 0.5. The second graph is partial dominance, and it shows us that the curves for variance are slightly skewed right with additive variance being maximized at about p=0.3 while genetic variance is maximized at about p=0.38.The third graph is a case of complete dominance, and it shows us that the variance graphs are very skewed right, wih additive variance being maximized at about p=0.25 while genetic variance is maximized at about p=0.33.
+
+###Number 3
+
+```{r}
+load("SU_Data.RData")
+```
+
+```{r}
+p.values.AD <- rep(0, 4000)
+p.values.A <- rep(0, 4000)
+p.values.D <- rep(0, 4000)
+
+for(i in 1:4000){
+  X <- W[,i]
+  Z <- 1.0*(X==1)
+  fmAD <- lm(y~X+Z)
+  fmA <- lm(y~X)
+  fm0 <- lm(y~1)
+  
+  p.values.AD[i] <- anova(fm0, fmAD)$Pr[2]
+  p.values.A[i] <- anova(fm0, fmA)$Pr[2]
+  p.values.D[i] <- anova(fmA, fmAD)$Pr[2]
+}
+```
+
+```{r}
+snp.number <- 1:4000
+bp <- snp.number
+chromosomes <- rep(1, 4000)
+p.value.mat <- as.data.frame(matrix(nrow = 4000, ncol = 6))
+p.value.mat$SNP <- snp.number
+p.value.mat$BP <- bp
+p.value.mat$CHR <- chromosomes
+p.value.mat$P.AD <- p.values.AD
+p.value.mat$P.A <- p.values.A
+p.value.mat$P.D <- p.values.D
+p.value.mat <- p.value.mat[,7:12]
+```
+
+```{r}
+manhattan(p.value.mat, p = "P.AD", xlab = "", main = "Negative Log P Values on Additivity + Dominance")
+manhattan(p.value.mat, p = "P.A", xlab = "", main = "Negative Log P Values on Additivity")
+
+p.value.mat.na <- na.omit(p.value.mat)
+manhattan(p.value.mat.na, p = "P.D", xlab = "", main = "Negative Log P Values on Dominance", ylim = c(0,100))
+```
+
+As can be seen, when the SNP number is from about 1000 to 1250, we get p values that show us that the additive effect is significantly different from 0. Likewise, the dominance + additive effect are jointly significant from 0. However, the dominance alone is only sometimes significant in this range, and when it is significant, it is only somewhat so. Thus, in the range of SNP numbers from 1000 to 1250, there is almost certainly an additive effect, but only possibly a dominance effect. No other SNP numbers display significant results, so it is likely that all other SNPs are unrelated to log-serum urate. It is worth noting that some data points were omitted for some of the dominance versus no dominance F tests. This is because only one set of homozygotes was present within those SNPs. That is, those columns held only 0s and 1s, but no 2s, which made the F test for dominance impossible.

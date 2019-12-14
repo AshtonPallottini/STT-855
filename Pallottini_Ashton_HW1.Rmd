@@ -1,0 +1,204 @@
+---
+title: "HW1"
+author: "Ashton Pallottini"
+date: "September 5, 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(qqman)
+```
+
+
+##HW1
+
+###Number 1
+
+```{r}
+a1.count <- 2*79 + 18
+two.N <- 2*(79+18+3)
+N <- two.N/2
+p.hat <- a1.count/two.N
+p.hat
+```
+
+The estimate of frequency for the A1 allele is 0.88.
+
+```{r}
+z.star <- qnorm(.975, mean = 0, sd = 1)
+se.p.hat <- sqrt(p.hat*(1-p.hat)/two.N)
+p.hat + c(-1,1)*z.star*se.p.hat
+```
+
+The 95% CI for p hat is approximately [0.8350, 0.9250].
+
+###Number 2
+
+```{r}
+exp.a1a1 <- N*(p.hat^2)
+exp.a1a2 <- N*2*p.hat*(1-p.hat)
+exp.a2a2 <- N*(1-p.hat)^2
+expected <- c(exp.a1a1, exp.a1a2, exp.a2a2)
+observed <- c(79, 18, 3)
+chi.table <- rbind(expected, observed)
+colnames(chi.table) <- c("A1A1", "A1A2", "A2A2")
+chi.table
+```
+The Expected genotype frequencies for A1A1, A1A2, and A2A2 are 77.44, 21.12, and 1.44, respectively.
+
+###Number 3
+
+```{r}
+chi.stat.vec.1 <- (chi.table[2,] - chi.table[1,])^2
+chi.stat.vec.2 <- chi.stat.vec.1/chi.table[1,]
+chi.stat <- sum(chi.stat.vec.2)
+
+chi.stat.vec.1
+chi.stat.vec.2
+chi.stat
+pchisq(chi.stat, df = 1, lower.tail = FALSE)
+```
+
+We take Ho: HWE is achieved in this population versus Ha: HWE is not achieved in this population. The values of (observed - expected)^2 are 2.43, 9.73, 2.43. Dividing these by each of their respective expected values, we get 0.031, 0.461, 1.690. Summing this up yields our Chi-squared statistic, which is 2.182. This follows a Chi-squared distribution with df = 1. As such, our p value is 0.1396. We fail to reject Ho, as our p value exceeds conventional significance levels. We do not have significant evidence to suggest that HWE is not achieved.
+
+###Number 4
+
+```{r}
+H <- (observed[2]/N)
+Ho <- (expected[2]/N)
+panmitic.index <- H/Ho
+panmitic.index
+
+inbreed.coef <- 1 - panmitic.index
+inbreed.coef
+```
+The panmitic index equals about 0.8522 while the inbreeding coefficient equals about 0.1477.
+
+###Number 5
+
+```{r}
+load("X_10k_10k.RData")
+```
+
+####Number 5.1
+
+```{r}
+#Calculate frequencies for allele coded one. Subtract from 1 if greater than 0.5
+freqs <- colSums(X)/20000
+for(i in 1:10000){
+  if(freqs[i]>.5){
+    freqs[i] <- 1 - freqs[i]
+  }
+}
+
+#Histogram of minor allele freqs
+hist(freqs, main = "Minor Allele Frequency", xlab = "Minor Allele Frequency", ylab = "Number of Occurrences")
+```
+
+####Number 5.2
+
+```{r}
+#Get expected values
+expected.1.1 <- freqs^2*10000
+expected.1.0 <- freqs*(1-freqs)*2*10000
+expected.0.0 <- (1-freqs)^2*10000
+
+expected <- rbind(expected.1.1,expected.1.0, expected.0.0)
+```
+
+
+```{r}
+#Observed values 
+observed.1.1 <- rep(0,10000)
+observed.1.0 <- rep(0,10000)
+observed.0.0 <- rep(0,10000)
+
+for(i in 1:10000){
+  my.table <- table(X[,i])
+  observed.0.0[i] <- my.table[1]
+  observed.1.0[i] <- my.table[2]
+  observed.1.1[i] <- my.table[3]
+}
+observed <- rbind(observed.1.1, observed.1.0, observed.0.0)
+```
+
+```{r}
+#Remove NAs and code as 0, as they should be
+observed[is.na(observed)] <- 0
+observed.1.1[is.na(observed.1.1)] <- 0
+observed.1.0[is.na(observed.1.0)] <- 0
+observed.0.0[is.na(observed.0.0)] <- 0
+```
+
+```{r}
+#Observed and expected together
+chi.sq.table <- rbind(observed, expected)
+```
+
+```{r}
+#Calculate test statistics for HWE
+chi.sq.stats <- (expected.1.1 - observed.1.1)^2/expected.1.1 + (expected.1.0 - observed.1.0)^2/expected.1.0 + (expected.0.0 - observed.0.0)^2/expected.0.0
+```
+
+```{r}
+#Calculate p values then take negative log
+chi.sq.p <- rep(0,10000)
+for(i in 1:10000){
+  chi.sq.p[i] <- pchisq(chi.sq.stats[i], 1, lower.tail = FALSE)
+}
+neglog.chi.sq.p <- -log(chi.sq.p)
+```
+
+```{r}
+#Create data frame
+snp.number <- 1:10000
+bp <- snp.number/1000
+chromosomes <- rep(1,10000)
+bp.2 <- chromosomes
+man.data <- cbind(snp.number, bp, chromosomes, chi.sq.p, bp.2)
+man.data <- as.data.frame(man.data)
+colnames(man.data) <- c("SNP", "BP", "CHR", "P", "BP2")
+
+#Remove p values that were so small as to be registered as 0 (can't take log of 0)
+man.data$P[man.data$P == 0] <- 0.000000001
+
+#Make Manhattan plot. First one is from 0 to 10, second has no xlim
+manhattan(man.data)
+manhattan(man.data, bp = "BP2")
+```
+
+####Number 5.3
+
+
+```{r}
+#Create table with requested data
+SNP <- colnames(X)
+five.three <- as.data.frame(rbind(SNP, freqs, chi.sq.stats, neglog.chi.sq.p, chi.sq.table))
+rownames(five.three)[c(2,4)] <- c("Minor Allele Freq", "-Log(P Value)")
+five.three <- t(five.three)
+five.three <- as.data.frame(five.three)
+five.three[,4] <- neglog.chi.sq.p
+five.four <- five.three
+
+#filter by rows with neglog p values only above 10
+five.three <- five.three[five.three$`-Log(P Value)`>10,]
+```
+
+```{r}
+#Display table
+five.three
+```
+
+####Number 5.4
+
+As a matter of Quality Control, I would recommend removing all of the variants that have chi-squared results that leave us almost certain that they are breaking the assumptions of HWE. If we take an "almost certain" p value to be about 0.00001, then we should remove all variants which have a negative log(p value) which exceeds -log(0.00001) = 5. Thus, I would recommend removing the following variants:
+
+```{r}
+five.four <- five.four[five.four$`-Log(P Value)`>5,]
+rownames(five.four)
+```
+

@@ -1,0 +1,405 @@
+---
+title: "M2_HW2"
+author: "Ashton Pallottini"
+date: "11/25/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(knitr)
+```
+
+###Problem 1
+
+####Part 1
+
+```{r}
+part.1.1 <- matrix(nrow = 3, ncol = 3)
+colnames(part.1.1) <- c("BB", "Bb", "bb")
+rownames(part.1.1) <- c("AA", "Aa", "aa")
+part.1.1[1,] <- c("(1-r)^2/4", "r(1-r)/2", "r^2/4")
+part.1.1[2,] <- c("r(1-r)/2", "(1-r)^2/2 + r^2/2", "r(1-r)/2")
+part.1.1[3,] <- rev(part.1.1[1,])
+
+part.1.1
+```
+
+####Part 2
+
+```{r}
+#Index for iterations
+t <- 2
+
+#Observed counts
+n22 <- 20
+n12 <- 20
+n02 <- 3
+n21 <- 17
+n11 <- 49
+n01 <- 21
+n20 <- 3
+n10 <- 19
+n00 <- 19
+n <- n22 + n12 + n02 + n21 + n11 + n01 + n20 + n10 + n00
+
+#initialize r-hat = 0.25
+r.hat <- c(0.25)
+
+#First E Step: Calculate phi-hat under r-hat = 0.25
+phi.hat <- c(n11*r.hat[1]^2/((1 - r.hat[1])^2 + r.hat[1]^2))
+
+#First M Step: Calculate new r-hat from phi-hat we just calculated
+r.hat <- c(r.hat, (2*(n20 + n02) + n21 + n12 + n10 + n01 + 2*phi.hat[1])/(2*n))
+
+while(abs(r.hat[t] - r.hat[t-1]) >= 10^(-7)){
+  #E Step: Calculate phi-hat
+  phi.hat <- c(phi.hat, n11*r.hat[t]^2/((1 - r.hat[t])^2 + r.hat[t]^2))
+  
+  #M Step: Calculate r-hat by subbing in the phi-hat that we just calculated
+  r.hat <- c(r.hat, (2*(n20 + n02) + n21 + n12 + n10 + n01 + 2*phi.hat[t])/(2*n))
+  t <- t + 1
+}
+
+r <- r.hat[length(r.hat)]
+r
+```
+
+Our estimate of r is 0.3073866.
+
+####Part 3
+
+```{r}
+#Calculate and display expected counts based off formulas in part 1
+expected <- matrix(nrow = 3, ncol = 3)
+colnames(expected) <- c("BB", "Bb", "bb")
+rownames(expected) <- c("AA", "Aa", "aa")
+expected[1,] <- c(n/16, n/8, n/16)
+expected[2,] <- c(n/8, n/4, n/8)
+expected[3,] <- expected[1,]
+expected
+
+#Display observed counts
+observed <- t(matrix(data = c(20,17,3,20,49,19,3,21,19), nrow = 3, ncol = 3))
+colnames(observed) <- c("BB", "Bb", "bb")
+rownames(observed) <- c("AA", "Aa", "aa")
+observed
+
+chi.sq.stat <- sum((observed - expected)^2/expected)
+chi.sq.stat
+
+p.val <- pchisq(chi.sq.stat, df = 1, lower.tail = FALSE)
+p.val
+```
+
+We have Ho: The two markers are not linked versus Ha: The two markers are linked. Let our significance level be 0.05. The chi-squared test yields a test statistic of 27.80702, which has df = 1. So the p value is thus 1.340e-07. This is less than 0.05, so we reject Ho and conclude that the two markers are linked.
+
+####Part 4
+
+```{r}
+#Likelihood under Ho, factorial(n) cancels out in ratio, and is thus ignored
+#Because factorial(171) = Inf in R
+l0 <- 1/(factorial(n22)*factorial(n21)*factorial(n20)*factorial(n12)*factorial(n11)*factorial(n10)*factorial(n02)*factorial(n01)*factorial(n00))*(1/16)^(n22+n00)*(1/16)^(n20+n02)*(1/8)^(n21+n12+n10+n01)*(1/4)^n11
+
+#Likelihood under H1, factorial(n) cancels out in ratio, and is thus ignored
+#Because factorial(171) = Inf in R
+l1 <- 1/(factorial(n22)*factorial(n21)*factorial(n20)*factorial(n12)*factorial(n11)*factorial(n10)*factorial(n02)*factorial(n01)*factorial(n00))*((1-r)^2/4)^(n22+n00)*(r^2/4)^(n20+n02)*(r*(1-r)/2)^(n21+n12+n10+n01)*(r^2/2 + (1-r)^2/2)^n11
+
+lik.ratio <- -2 * log(l0/l1, base = exp(1))
+lik.ratio
+
+p.val <- pchisq(lik.ratio, df = 1, lower.tail = FALSE)
+p.val
+```
+
+We have Ho: r = 0.5 versus r != 0.5. Let our significance level be 0.05. The LR test yields a chi-squared statistic of 28.26881. This has a df = 1, which yields a p value of 1.056e-07. As such, we reject Ho and conclude that r != 0.5. Thus, the markers are linked. This is the same conclusion as in part 3, and in fact, the test statistics and p values between the two tests are very close. As such, the tests agree with eachother.
+
+###Problem 2
+
+####Part 1 
+
+```{r}
+mouse.data <- read.table("M2_HW2_data.txt", header = FALSE)
+mouse.data.2 <- mouse.data
+colnames(mouse.data) <- c("y", "M1", "M2", "M3", "M4")
+
+#Calculate means and variances. Perform tests
+means <- matrix(nrow = 3, ncol = 4)
+vars <- means
+ns <- means
+pooled.vars <- rep(NA, 4)
+t.stats.add <- pooled.vars
+p.vals.add <- t.stats.add
+t.stats.dom <- pooled.vars
+p.vals.dom <- t.stats.add
+
+for(i in 1:4){
+  mouse.data.2 <- mouse.data[mouse.data[,(i+1)] == -1,]
+  means[1,i] <- mean(mouse.data.2$y)
+  vars[1,i] <- var(mouse.data.2$y)
+  ns[1,i] <- length(mouse.data.2$y)
+  mouse.data.2 <- mouse.data
+  
+  mouse.data.2 <- mouse.data[mouse.data[,(i+1)] == 0,]
+  means[2,i] <- mean(mouse.data.2$y)
+  vars[2,i] <- var(mouse.data.2$y)
+  ns[2,i] <- length(mouse.data.2$y)
+  mouse.data.2 <- mouse.data
+  
+  mouse.data.2 <- mouse.data[mouse.data[,(i+1)] == 1,]
+  means[3,i] <- mean(mouse.data.2$y)
+  vars[3,i] <- var(mouse.data.2$y)
+  ns[3,i] <- length(mouse.data.2$y)
+  mouse.data.2 <- mouse.data
+  
+  pooled.vars[i] <- ((ns[3,i] - 1)*vars[3,i] + (ns[1,i] - 1)*vars[1,i])/(ns[3,i] + ns[1,i] - 2)
+  
+  #Additive Test
+  t.stats.add[i] <- (means[3,i] - means[1,i])/sqrt(pooled.vars[i]*(1/ns[3,i] + 1/ns[1,i]))
+  p.vals.add[i] <- 2*pt(t.stats.add[i], df = ns[3,i]+ns[1,i]-2, lower.tail = FALSE)
+  
+  #Dominance Test
+  t.stats.dom[i] <- (means[2,i] - (means[3,i] + means[1,i])/2)/sqrt(pooled.vars[i]*(1/ns[2,i] + 1/(4*ns[1,i]) + 1/(4*ns[3,i])))
+  p.vals.dom[i] <- 2*pt(t.stats.dom[i], df = ns[3,i]+ns[1,i]-2, lower.tail = FALSE)
+}
+
+include_graphics("Table.JPG")
+```
+
+Let us use a 5% significance level for each test. For each marker's additive effect, we have Ho: Mu-neg-1 = Mu-1 versus Ha: Mu-neg-1 != Mu-1. The p values for markers 1, 2, 3, and 4 are 0.076, 0.003, 0.002, and 0.076, respectively. As such, we fail to reject Ho for markers 1 and 4 and we reject Ho for markers 2 and 3. There is sufficient evidence of an additive effect for markers 2 and 3, but we do not have any evidence of any such additive effect of markers 1 and 4. For each marker's dominance effect, we have Ho: Mu-0 = (Mu-1 + Mu-neg-1)/2 versus Ha: Mu-0 != (Mu-1 + Mu-neg-1)/2. The p values for markers 1, 2, 3, and 4 are 0.140, 0.015, 0.011, and 0.375, respectively. As such, we fail to reject Ho for markers 1 and 4 and we reject Ho for markers 2 and 3. There is sufficient evidence of a dominance effect for markers 2 and 3, but we do not have any evidence of any such dominance effect of markers 1 and 4.
+
+####Part 2 and Part 3
+
+```{r}
+cvalue <- 1e-05
+interval <- 2
+
+y <- mouse.data$y
+MM <- mouse.data[,2:5]
+chrp <- cumsum(c(0, 21.8, 16, 25.3))
+
+dd <- c((0:(max(chrp)/interval))*interval)
+d1=sort(unique(c(chrp,dd))) 
+
+n1 <- length(d1)
+
+#Haldane map function
+f.r <- function(d){
+  return((1-exp(-2*d/100))/2)
+}
+
+#The prob of QTL given on the Marker
+fp <- function(r1,r2,r){
+  p1 <- c((1-r1)^2*(1-r2)^2, 2*r1*r2*(1-r1)*(1-r2),r1^2*r2^2)/(1-r)^2
+  p2 <- c((1-r1)^2*r2*(1-r2), r1*(1-r1)*(1-2*r2+2*r2^2),r1^2*r2*(1-r2))/(r*(1-r))
+  p3 <- c((1-r1)^2*r2^2, 2*r1*r2*(1-r1)*(1-r2),r1^2*(1-r2)^2)/r^2
+  p4 <- c(r1*(1-r1)*(1-r2)^2, r2*(1-r2)*(1-2*r1+2*r1^2),r1*(1-r1)*r2^2)/(r*(1-r))
+  p5 <- c(2*r1*r2*(1-r1)*(1-r2), (1-2*r1+2*r1^2)*(1-2*r2+2*r2^2),2*r1*r2*(1-r1)*(1-r2))/(1-2*r+2*r^2)
+  p6 <- c(r1*(1-r1)*r2^2, r2*(1-r2)*(1-2*r1+2*r1^2),r1*(1-r1)*(1-r2)^2)/(r*(1-r))
+  p7 <- c(r1^2*(1-r2)^2, 2*r1*r2*(1-r1)*(1-r2),(1-r1)^2*r2^2)/r^2
+  p8 <- c(r1^2*r2*(1-r2), r1*(1-r1)*(1-2*r2+2*r2^2),r2*(1-r1)^2*(1-r2))/(r*(1-r))
+  p9 <- c(r1^2*r2^2, 2*r1*r2*(1-r1)*(1-r2),(1-r1)^2*(1-r2)^2)/(1-r)^2
+    
+  p <- rbind(p1,p2,p3,p4,p5,p6,p7,p8,p9)
+  return(p)
+}
+
+#assign the mixture proportions for given flanking marker types
+f.sphi <- function(M.1,M.2,p){
+  n <- length(M.1)
+  z <- matrix(0,n,3)
+  for (i in 1:n){
+    if(M.1[i]==1 && M.2[i]==1){
+      z[i,]=p[1,]
+    }
+    else if(M.1[i]==1 && M.2[i]==0){
+      z[i,]=p[2,] 
+    }
+    else if(M.1[i]==1 && M.2[i]==-1){
+      z[i,]=p[3,]
+    }
+    else if(M.1[i]==0 && M.2[i]==1){
+      z[i,]=p[4,] 
+    }
+    else if(M.1[i]==0 && M.2[i]==0){
+      z[i,]=p[5,] 
+    }
+    else if(M.1[i]==0 && M.2[i]==-1){
+      z[i,]=p[6,] 
+    }
+    else if(M.1[i]==-1 && M.2[i]==1){
+      z[i,]=p[7,] 
+    }
+    else if(M.1[i]==-1 && M.2[i]==0){
+      z[i,]=p[8,] 
+    }
+    else if(M.1[i]==-1 && M.2[i]==-1){
+      z[i,]=p[9,] 
+    }
+  }
+  return(z)
+}
+
+EM <- function(data, n1, chrp){
+  y <- data[,1]
+  MM <- data[,2:5]
+
+  mus <- matrix(0,n1,4)
+  LR <- matrix(0,n1,1)
+  
+  # nn location to scan
+  for(ww in 1:n1){
+    dr.1 <- d1[ww]
+    nl <- length(chrp)-1
+
+    for (jj in 1:nl){
+      if (dr.1 >= chrp[jj] && dr.1 < chrp[(jj+1)]){ 
+        loc1=jj
+      }
+    }
+    
+    n <- length(y)
+
+    Mg <- cbind(MM[,loc1:I(loc1+1)])
+	
+    rr <- f.r(chrp[loc1+1]-chrp[loc1])
+    r1 <- f.r(dr.1-chrp[loc1])
+    r2 <- f.r(chrp[(loc1+1)]-dr.1)
+
+    pp <- fp(r1,r2,rr)
+
+    sphi <- f.sphi(Mg[,1],Mg[,2],pp)
+
+    #Estimate the parameter                      
+ 
+    my <- mean(y)
+    ll0 <- 0
+    sigm <- sqrt((n-1)*var(y)/n)
+    ll0 <- sum(log(dnorm(y,my,sigm)))
+
+    #Give the Initial value for the EM algorithm
+    mu2 <- my+0.5; mu1 <- my;  mu0=my-0.5; sigm <- sd(y) 
+    par.value <- as.matrix(c(mu2,mu1,mu0))
+
+    L <- c(1,5)
+    
+    while(abs(L[2]-L[1])>cvalue){
+      L[1] <- L[2]
+        
+      #E-step         
+      cphi <- matrix(0,n,3) #this is the capital phi matrix
+      for (i in 1:n){
+        deno <- sphi[i,]%*%dnorm(y[i],par.value,sigm)
+            
+        cphi[i,1] <- sphi[i,1]*dnorm(y[i],mu2,sigm)/deno
+        cphi[i,2] <- sphi[i,2]*dnorm(y[i],mu1,sigm)/deno
+        cphi[i,3] <- sphi[i,3]*dnorm(y[i],mu0,sigm)/deno
+      }
+
+      #M-step
+      
+      for(j in 1:3){ 
+        par.value[j,] <- cphi[,j]%*%y/sum(cphi[,j])    
+      }
+      
+      mu2 <- par.value[1,]
+      mu1 <- par.value[2,]
+      mu0 <- par.value[3,]
+
+	    par.value <- as.matrix(c(mu2,mu1,mu0))
+
+      sigm2 <- (cphi[,1]%*%(y-mu2)^2+cphi[,2]%*%(y-mu1)^2+cphi[,3]%*%(y-mu0)^2)/n
+      sigm <- sqrt(sigm2)
+
+      # Now calculate the log Likelihood 
+      llr <- sum(log(sphi[,1]*dnorm(y,mu2,sigm)+sphi[,2]*dnorm(y,mu1,sigm)+sphi[,3]*dnorm(y,mu0,sigm)))
+      L[2] <- llr
+      #cat(llr,"\n")
+    }
+
+    u <- (mu2+mu0)/2
+    a <- mu2-u
+    d <- mu1-u
+
+    LR[ww,] <- -2*(ll0-llr)
+    mus[ww,] <- c(u,a,d,sigm2)
+  }
+
+  mLR <- max(LR)
+  j <- which.max(LR)
+  par <- mus[j,]  	          
+  posi <- d1[j]
+  c(posi,mLR,par) ### final QTL position, maximum LR and estimated parameters (mu,a,d,sigma^2))
+
+  mylist <- list("posi"=posi, "mLR"=mLR, "LR"=LR,"par"=par)
+  return(mylist)
+}
+
+#EM Algorithm on Mouse Data
+real <- EM(mouse.data, n1 = n1, chrp = chrp)
+LR <- real$LR
+plot(x=d1,y=LR,type="b",col="red",lwd=4,xlab="Test position") ### plot the LR profile
+mLR <- max(LR)
+j <- which.max(LR)
+par <- real$par
+posi <- real$posi
+
+arrows(d1[j],mLR,d1[j],3.5,col="blue") ### point the QTL position
+d <- c(which(chrp[1]==d1,arr.ind = TRUE),which(chrp[2]==d1,arr.ind = TRUE),which(chrp[3]==d1,arr.ind = TRUE),which(chrp[4]==d1,arr.ind = TRUE))
+
+for (i in 1:length(chrp)){
+	lines(x=c(chrp[i],chrp[i]),y=c(0,4),col="blue")
+	text(x=chrp[i],y=4.5,label=paste('M',i,sep=""))
+}
+
+#Part 3: Permutation
+pm=100 # typically set as 1000. 100 here to save computation time
+perm=matrix(0,pm,1)
+
+for (iter in 1:pm){
+  yy=sample(y)
+  data.perm=cbind(yy,MM)
+  z=EM(data.perm, n1 = n1, chrp = chrp)
+  ## then repeat the above estimation step 
+  perm[iter,]=z$mLR
+}
+
+### draw the threshold line ###
+abline(quantile(perm,0.95),0)
+
+par
+```
+
+The estimated QTL position is about 30. The estimated parameters are mu-hat = 12.3329801, a-hat = 0.3995566, d-hat = 0.4977814, and sigma^2-hat = 2.2743558. The method for determining the critical threshold uses permutation, and is at the end of the above code chunk. The critical threshold is well below the LR of our suspected QTL, so we can be confident that our QTL is legitimate.
+
+####Part 4
+
+```{r}
+#Bootstrap confidence interval, note you have to resample
+#the y and marker together as a vector
+B <- 10
+boot <- matrix(0,B,1)
+for(iter in 1:B){
+  n <- length(y)
+  id <- sample.int(n,size=n,replace=TRUE)
+  y.boot <- mouse.data[id,]
+  ## then repeat the above estimation step 
+  result.boot <- EM(y.boot, n1 = n1, chrp = chrp)
+  boot[iter,] <- result.boot$posi
+}
+
+#quantile CI
+lower <- quantile(boot,0.025)
+upper <- quantile(boot,0.975)
+c(lower, upper)
+
+#t CI
+s <- apply(boot,2,sd)
+CI <- c(posi-qt(0.975,n-1)*s,posi+qt(0.975,n-1)*s)
+
+```
+
+The bootstrapped CI is the first one. The t CI is used as a reference check and is the second one
